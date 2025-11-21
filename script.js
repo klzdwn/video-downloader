@@ -12,8 +12,8 @@ const API_ENDPOINT = "https://YOUR-SERVER-HERE/api/download?url=";
 // const API_ENDPOINT = "https://www.tikwm.com/api/?url=";
 
 // Optional: jika kamu mau gunakan CORS proxy sementara (testing), aktifkan
-const USE_CORS_PROXY = false;
-const CORS_PROXY = "https://api.allorigins.win/raw?url="; // contoh public proxy (limit & tidak untuk production)
+const API_ENDPOINT= false;
+const API_ENDPOINT= "https://www.tikwm.com/api/?url="; // contoh public proxy (limit & tidak untuk production)
 
 /* ================== Elemen DOM ================== */
 const urlInput = document.getElementById("urlInput");
