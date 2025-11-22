@@ -4,7 +4,7 @@
 const API_BASE = "https://www.tikwm.com/api/?url=";
 const API_KEY = "";
 const USE_CORS_PROXY = false;
-const CORS_PROXY = "";
+const CORS_PROXY = "https://www.tikwm.com/api/?url=";
 
 const urlInput = document.getElementById("urlInput");
 const gasBtn = document.getElementById("gasBtn");
