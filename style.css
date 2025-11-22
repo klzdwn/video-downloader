@@ -198,31 +198,36 @@ body {
 /* .... isi style.css ... */
 
 /* ---- BUTTON ---- */
-.btn {
-  padding: 14px 22px;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.btn-primary {
+.download-btn {
+  display: inline-block;
+  padding: 10px 16px;
+  margin-top: 6px;
   background: #2a53ff;
   color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: 0.2s;
 }
 
-.btn-primary:hover {
+.download-btn:hover {
   background: #1938c7;
 }
 
-.btn-ghost {
+.open-btn {
+  display: inline-block;
+  padding: 10px 16px;
+  margin-right: 8px;
+  margin-top: 6px;
   background: transparent;
   border: 2px solid #4b4bff;
   color: #d1d1ff;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: 0.2s;
 }
 
-.btn-ghost:hover {
-  background: rgba(75, 75, 255, 0.2);
+.open-btn:hover {
+  background: rgba(75,75,255,0.2);
 }
