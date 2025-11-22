@@ -90,6 +90,7 @@ async function callApi(videoUrl) {
 }
 
 // --------- RENDER (perbaikan: jangan tampilkan thumbnail jika player sudah dipakai) ----------
+// Ganti fungsi renderResult dengan ini
 function renderResult(payload) {
   if (!resultList || !resultBox) return;
   if (payload && payload.ok && payload.result) payload = payload.result;
@@ -120,21 +121,63 @@ function renderResult(payload) {
 
   resultList.innerHTML = "";
 
-  // Decide whether to show video player:
+  // reset player/thumb
+  if (previewVideo) {
+    previewVideo.pause();
+    previewVideo.removeAttribute("src");
+    previewVideo.load();
+    previewVideo.removeAttribute("poster");
+    // ensure attributes
+    previewVideo.setAttribute("playsinline", "");
+    previewVideo.setAttribute("controls", "");
+    previewVideo.setAttribute("crossorigin", "anonymous");
+  }
+  if (playerBox) playerBox.classList.add("hidden");
+  if (thumbBox) thumbBox.classList.add("hidden");
+
+  // Try show player using first download
   let showingPlayer = false;
   if (downloads.length && previewVideo && playerBox) {
     const first = downloads[0].url;
     if (first && ( /\.mp4(\?|$)/i.test(first) || /play/i.test(first) || first.startsWith("http") )) {
+      // attach error handler (one-time)
+      const onError = () => {
+        console.warn("previewVideo error event");
+        showStatus("Preview video gagal diputar (CORS/format). Tampilkan thumbnail sebagai fallback.", "error");
+        // fallback -> show thumbnail (if exists) and hide player
+        playerBox.classList.add("hidden");
+        if (thumbnail) {
+          if (thumbBox && thumbImg) {
+            thumbImg.src = thumbnail;
+            thumbBox.classList.remove("hidden");
+          } else {
+            const img = document.createElement("img");
+            img.src = thumbnail;
+            img.alt = title || "thumbnail";
+            img.style.maxWidth = "100%";
+            img.style.borderRadius = "10px";
+            resultList.appendChild(img);
+          }
+        }
+        previewVideo.removeEventListener("error", onError);
+      };
+
+      previewVideo.addEventListener("error", onError, { once: true });
+
       try {
         previewVideo.src = first;
         previewVideo.load();
+        // don't autoplay mobile — user can tap play
         playerBox.classList.remove("hidden");
         showingPlayer = true;
-      } catch(e){ console.warn("previewVideo error", e); showingPlayer = false; }
+      } catch (e) {
+        console.warn("set previewVideo.src error", e);
+        showingPlayer = false;
+      }
     }
   }
 
-  // Only show thumbnail if we ARE NOT showing player (prevents dup)
+  // jika player tidak dipakai -> tampilkan thumbnail (fallback)
   if (!showingPlayer && thumbnail) {
     if (thumbBox && thumbImg) {
       thumbImg.src = thumbnail;
@@ -157,7 +200,7 @@ function renderResult(payload) {
     resultList.appendChild(h);
   }
 
-  // Buttons area: Download Video (first), Download Foto (thumbnail), Download Audio (if any)
+  // Buttons
   const btnWrap = document.createElement("div");
   btnWrap.style.display = "flex";
   btnWrap.style.flexWrap = "wrap";
@@ -195,6 +238,7 @@ function renderResult(payload) {
 
   resultList.appendChild(btnWrap);
   resultBox.classList.remove("hidden");
+}
 }
 
 // ---------- MAIN ----------
