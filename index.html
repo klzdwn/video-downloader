@@ -7,7 +7,9 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- optional blur layer (keberadaan tidak ganggu) -->
   <div class="bg-blur"></div>
+
   <main class="page">
     <header class="header">
       <div class="brand">
@@ -38,8 +40,10 @@
       </div>
 
       <p class="hint">
-        </h3>Jika ngebug silahkan pencet button download lagi</h3>
+        Jika ngebug silahkan pencet button download lagi.
       </p>
+
+      <div id="statusBox" class="status hidden" style="display:none"></div>
 
       <div id="resultBox" class="result hidden">
         <h3>Hasil Parser</h3>
@@ -75,15 +79,15 @@
       </ul>
       <p class="disclaimer">
         Gunakan website ini sesuai kebijakan pengembang dan hukum.<br>
-        </ul>
         Hak cipta ©kalz sann
       </p>
     </section>
   </main>
 
-  <!-- efek kilat / overlay -->
-<div class="bg-flash"></div>
-<canvas id="lightningCanvas"></canvas>
-<script src="script.js"></script>
+  <!-- overlay flash + lightning canvas (tidak mengganggu klik UI) -->
+  <div class="bg-flash" aria-hidden="true"></div>
+  <canvas id="lightningCanvas" aria-hidden="true"></canvas>
+
+  <script src="script.js"></script>
 </body>
 </html>
