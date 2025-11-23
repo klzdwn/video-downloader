@@ -3,45 +3,33 @@
 // CONFIGURATION
 // ------------------------------------------------------
 const API_BASE = "https://www.tikwm.com/api/?url=";
-// - Ganti API_BASE sesuai API yang hendak dipakai.
-// - Jika pakai TikHub langsung, lihat docs.tikhub.io untuk path endpoint yang benar.
-// - Jika API tidak butuh key, kosongkan API_KEY.
-const API_KEY = ""; // jika perlu: "Bearer xxxxx" atau "API_KEY_HERE"
-
-// CORS proxy (testing only) - jangan pakai untuk produksi
+const API_KEY = "";
 const USE_CORS_PROXY = false;
-const CORS_PROXY = "https://www.tikwm.com/api/?url="; // contoh public proxy (rate-limit & tidak disarankan)
+const CORS_PROXY = "https://www.tikwm.com/api/?url=";
 
 // ------------------------------------------------------
-// DOM elements (sesuaikan id di index.html mu)
+// DOM elements
 // ------------------------------------------------------
 const urlInput = document.getElementById("urlInput");
 const gasBtn = document.getElementById("gasBtn");
 const clearBtn = document.getElementById("clearBtn");
-const statusBox = document.getElementById("statusBox"); // may be null in your HTML
+let statusBox = document.getElementById("statusBox");
 const resultBox = document.getElementById("resultBox");
 const resultList = document.getElementById("resultList");
 
-// optional: player / thumbnail containers (jika ada di HTML)
 const playerBox = document.getElementById("playerBox");
 const previewVideo = document.getElementById("previewVideo");
 const thumbBox = document.getElementById("thumbBox");
 const thumbImg = document.getElementById("thumbImg");
 
 // ------------------------------------------------------
-// UI helpers
+// UI helpers (ensure statusBox placement)
 // ------------------------------------------------------
-// --- Start: replacement for status-box helpers ---
-// Pastikan status box ditempatkan tepat setelah bar tombol (.button-row)
 function _ensureStatusBox() {
-  // jika sudah ada di DOM, kembalikan
   let box = document.getElementById("statusBox");
   if (box) return box;
 
-  // cari bar tombol (button-row) sebagai anchor
   const anchor = document.querySelector(".button-row") || document.querySelector(".input-row") || null;
-
-  // buat elemen status
   box = document.createElement("div");
   box.id = "statusBox";
   box.dataset.type = "info";
@@ -52,21 +40,17 @@ function _ensureStatusBox() {
   box.style.fontWeight = "600";
   box.style.maxWidth = "100%";
   box.style.boxSizing = "border-box";
-  // default warna (CSS kamu bisa override jika nanti tambahkan selector #statusBox)
   box.style.background = "rgba(30,60,90,0.9)";
   box.style.color = "#eaf2ff";
   box.style.textAlign = "center";
+  box.style.zIndex = 4;
 
   if (anchor && anchor.parentNode) {
-    // sisipkan setelah anchor (di bawah tombol)
     anchor.parentNode.insertBefore(box, anchor.nextSibling);
+  } else if (resultBox && resultBox.parentNode) {
+    resultBox.parentNode.insertBefore(box, resultBox);
   } else {
-    // fallback: tempatkan di dalam body sebelum resultBox
-    if (typeof resultBox !== "undefined" && resultBox && resultBox.parentNode) {
-      resultBox.parentNode.insertBefore(box, resultBox);
-    } else {
-      document.body.appendChild(box);
-    }
+    document.body.appendChild(box);
   }
   return box;
 }
@@ -81,7 +65,6 @@ function showStatus(msg, kind = "info") {
   box.textContent = msg;
   box.style.display = "block";
 
-  // warna sederhana berdasarkan jenis
   if (kind === "error") {
     box.style.background = "rgba(180,40,60,0.95)";
     box.style.color = "#fff";
@@ -93,11 +76,12 @@ function showStatus(msg, kind = "info") {
     box.style.color = "#eaf2ff";
   }
 
-  // auto-hide untuk pesan non-info
   clearTimeout(box._hideTimeout);
   if (kind !== "info") {
     box._hideTimeout = setTimeout(() => { hideStatus(); }, 6000);
   }
+
+  return box;
 }
 
 function hideStatus() {
@@ -108,7 +92,6 @@ function hideStatus() {
   box.dataset.type = "";
   if (box._hideTimeout) { clearTimeout(box._hideTimeout); box._hideTimeout = null; }
 }
-// --- End: replacement for status-box helpers ---
 
 function clearResults() {
   if (resultList) resultList.innerHTML = "";
@@ -155,17 +138,11 @@ function pickThumbnail(json) {
 // Build request & call API
 // ------------------------------------------------------
 async function callApi(videoUrl) {
-  // build endpoint (simple concat). If API expects POST or other param, modify di sini.
   let endpoint = API_BASE + encodeURIComponent(videoUrl);
-
-  if (USE_CORS_PROXY) {
-    endpoint = CORS_PROXY + endpoint;
-  }
+  if (USE_CORS_PROXY) endpoint = CORS_PROXY + endpoint;
 
   const headers = { Accept: "application/json" };
-  if (API_KEY && API_KEY.length) {
-    headers["Authorization"] = API_KEY;
-  }
+  if (API_KEY && API_KEY.length) headers["Authorization"] = API_KEY;
 
   const res = await fetch(endpoint, { method: "GET", headers });
   if (!res.ok) {
@@ -180,9 +157,7 @@ async function callApi(videoUrl) {
     return res.json();
   } else {
     const txt = await res.text();
-    try {
-      return JSON.parse(txt);
-    } catch (e) {
+    try { return JSON.parse(txt); } catch (e) {
       const err = new Error("Upstream returned non-JSON response");
       err.raw = txt;
       throw err;
@@ -192,13 +167,10 @@ async function callApi(videoUrl) {
 
 // ------------------------------------------------------
 // Download utility: fetch -> blob -> save
-// - note: akan gagal jika file server memblok CORS (browser)
 // ------------------------------------------------------
 async function downloadBlob(url, filename = "video.mp4") {
   try {
     showStatus("Mengunduh file...", "info");
-
-    // if you want to route file download through proxy for CORS testing:
     let fetchUrl = url;
     if (USE_CORS_PROXY) fetchUrl = CORS_PROXY + url;
 
@@ -227,19 +199,15 @@ async function downloadBlob(url, filename = "video.mp4") {
 }
 
 // ------------------------------------------------------
-// Render result: map various possible response shapes into UI
+// Render result
 // ------------------------------------------------------
 function renderResult(payload) {
-  // normalize payload if wrapper { ok: true, result: {...} }
   if (payload && payload.ok && payload.result) payload = payload.result;
 
-  // Try detect title/thumbnail/downloads
   const title = payload.title || payload.name || payload.desc || (payload.data && payload.data.title) || "";
   const thumbnail = pickThumbnail(payload);
 
-  // Gather download links
   const downloads = [];
-
   if (Array.isArray(payload.downloads) && payload.downloads.length) {
     payload.downloads.forEach(d => {
       downloads.push({
@@ -251,14 +219,12 @@ function renderResult(payload) {
     });
   }
 
-  // common fields (tikwm-like)
   if (!downloads.length) {
     if (payload.play) downloads.push({ label: "Tanpa Watermark", url: payload.play, size: payload.size || "" });
     if (payload.wmplay) downloads.push({ label: "Dengan Watermark", url: payload.wmplay, size: payload.size || "" });
     if (payload.video && payload.video.play_addr) downloads.push({ label: "Play", url: payload.video.play_addr });
   }
 
-  // fallback: extract URLs from object
   if (!downloads.length) {
     const urls = Array.from(collectUrls(payload));
     const preferred = urls.filter(u => /\.mp4(\?|$)/i.test(u) || /\/play\/|\/video\//i.test(u) || /play/i.test(u));
@@ -266,19 +232,15 @@ function renderResult(payload) {
     uniq.forEach((u, i) => downloads.push({ label: `Detected ${i+1}`, url: u, size: "" }));
   }
 
-  // ALSO collect image/audio URLs from payload for separate foto/audio buttons
   const allUrls = Array.from(collectUrls(payload));
   const imageUrls = allUrls.filter(u => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
   const audioUrls = allUrls.filter(u => /\.(mp3|m4a|aac|ogg|wav)(\?|$)/i.test(u) || /audio/i.test(u));
 
   const audioUrl = audioUrls.length ? audioUrls[0] : null;
-  // prefer explicit thumbnail if exists
   const photoUrl = thumbnail || (imageUrls.length ? imageUrls[0] : null);
 
-  // UI: clear previous
-  resultList.innerHTML = "";
+  if (resultList) resultList.innerHTML = "";
 
-  // --- try to find a playable URL (mp4 / play-like) first ---
   let playableUrl = null;
   for (const d of downloads) {
     if (d.url && ( /\.mp4(\?|$)/i.test(d.url) || /\/play\/|\/video\//i.test(d.url) )) {
@@ -291,7 +253,6 @@ function renderResult(payload) {
     if (firstCandidate) playableUrl = firstCandidate.url;
   }
 
-  // If we have a playable url and video player present -> show it
   if (playableUrl && previewVideo && playerBox) {
     try { previewVideo.crossOrigin = "anonymous"; } catch (e) {}
     previewVideo.src = playableUrl;
@@ -300,12 +261,11 @@ function renderResult(payload) {
     playerBox.classList.remove("hidden");
     if (thumbBox) thumbBox.classList.add("hidden");
   } else {
-    // show thumbnail if present (fallback)
     if (photoUrl) {
       if (thumbBox && thumbImg) {
         thumbImg.src = photoUrl;
         thumbBox.classList.remove("hidden");
-      } else {
+      } else if (resultList) {
         const img = document.createElement("img");
         img.src = photoUrl;
         img.alt = title || "thumbnail";
@@ -317,8 +277,7 @@ function renderResult(payload) {
     if (playerBox) playerBox.classList.add("hidden");
   }
 
-  // Title
-  if (title) {
+  if (title && resultList) {
     const h = document.createElement("div");
     h.style.fontWeight = "700";
     h.style.margin = "8px 0";
@@ -326,11 +285,9 @@ function renderResult(payload) {
     resultList.appendChild(h);
   }
 
-  // KEEP ONLY 1 DOWNLOAD (hapus detected lain kecuali index 0)
   if (downloads.length > 1) downloads.splice(1);
 
-  // If there's at least one download, render a single row with direct download button
-  if (downloads.length) {
+  if (downloads.length && resultList) {
     const d = downloads[0];
     const node = document.createElement("div");
     node.className = "result-item";
@@ -341,7 +298,6 @@ function renderResult(payload) {
       </div>
 
       <div class="download-actions">
-        <!-- Direct-download button: uses href + download attribute and data for JS fallback -->
         <a href="${d.url}" class="btn-download download-btn" data-url="${d.url}"
            data-fn="${(d.filename || "video").replace(/"/g,'')}.mp4" download>
           Download Video
@@ -349,8 +305,7 @@ function renderResult(payload) {
       </div>
     `;
     resultList.appendChild(node);
-  } else {
-    // no downloads found
+  } else if (resultList) {
     const hint = document.createElement("div");
     hint.style.opacity = "0.85";
     hint.style.marginTop = "8px";
@@ -358,8 +313,7 @@ function renderResult(payload) {
     resultList.appendChild(hint);
   }
 
-  // ===== new: row with Download Foto + Download Audio (single buttons) =====
-  if (photoUrl || audioUrl) {
+  if ((photoUrl || audioUrl) && resultList) {
     const box = document.createElement("div");
     box.className = "result-item";
     box.style.display = "flex";
@@ -369,42 +323,47 @@ function renderResult(payload) {
     box.style.alignItems = "center";
 
     if (photoUrl) {
-  const aPhoto = document.createElement("button");
-  aPhoto.className = "download-btn btn-download";
-  aPhoto.dataset.url = photoUrl;
-  aPhoto.dataset.fn = "photo.jpg";
-  aPhoto.textContent = "Download Foto";
-  box.appendChild(aPhoto);
-}
+      const aPhoto = document.createElement("button");
+      aPhoto.className = "download-btn btn-download";
+      aPhoto.dataset.url = photoUrl;
+      aPhoto.dataset.fn = "photo.jpg";
+      aPhoto.textContent = "Download Foto";
+      box.appendChild(aPhoto);
+    }
 
-if (audioUrl) {
-  const aAudio = document.createElement("button");
-  aAudio.className = "download-btn btn-download";
-  aAudio.dataset.url = audioUrl;
-  aAudio.dataset.fn = "audio.mp3";
-  aAudio.textContent = "Download Audio";
-  box.appendChild(aAudio);
-}
+    if (audioUrl) {
+      const aAudio = document.createElement("button");
+      aAudio.className = "download-btn btn-download";
+      aAudio.dataset.url = audioUrl;
+      aAudio.dataset.fn = "audio.mp3";
+      aAudio.textContent = "Download Audio";
+      box.appendChild(aAudio);
+    }
 
     resultList.appendChild(box);
   }
 
-  resultBox.classList.remove("hidden");
+  if (resultBox) resultBox.classList.remove("hidden");
 }
+
 // ------------------------------------------------------
-// Main flow: called when user clicks Gas
+// Main flow
 // ------------------------------------------------------
 async function processUrl(videoUrl) {
   clearResults();
   showStatus("Loading...", "info");
-  gasBtn.disabled = true;
-  gasBtn.textContent = "Proses...";
+  if (gasBtn) {
+    gasBtn.disabled = true;
+    gasBtn.textContent = "Proses...";
+  }
 
   try {
     const json = await callApi(videoUrl);
 
     showStatus("Sukses menerima permintaan...", "success");
     renderResult(json);
+    // small chance to trigger a flash for drama
+    maybeTriggerLightning(0.18);
   } catch (err) {
     console.error("API error:", err);
     let msg = err.message || "Gagal";
@@ -415,42 +374,44 @@ async function processUrl(videoUrl) {
     }
     showStatus("Error: " + msg, "error");
   } finally {
-    gasBtn.disabled = false;
-    gasBtn.textContent = "Download";
+    if (gasBtn) {
+      gasBtn.disabled = false;
+      gasBtn.textContent = "Download";
+    }
   }
 }
 
 // ------------------------------------------------------
 // Event listeners
 // ------------------------------------------------------
-gasBtn.addEventListener("click", () => {
-  const u = (urlInput.value || "").trim();
-  if (!u) {
-    showStatus("Masukkan URL video dulu!", "error");
-    return;
-  }
-  try { new URL(u); } catch { showStatus("Format URL tidak valid.", "error"); return; }
-  processUrl(u);
-});
+if (gasBtn) {
+  gasBtn.addEventListener("click", () => {
+    const u = (urlInput && urlInput.value || "").trim();
+    if (!u) {
+      showStatus("Masukkan URL video dulu!", "error");
+      return;
+    }
+    try { new URL(u); } catch { showStatus("Format URL tidak valid.", "error"); return; }
+    processUrl(u);
+  });
+}
 
-clearBtn.addEventListener("click", () => {
-  urlInput.value = "";
-  clearResults();
-});
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    if (urlInput) urlInput.value = "";
+    clearResults();
+  });
+}
 
-// pastikan resultList sudah ada (element di DOM)
-// Event delegation untuk tombol download (gantikan blok listener lama dengan ini)
 if (resultList) {
-  // pastikan listener hanya dipasang sekali
   if (!window.__downloadHandlerInstalled) {
     window.__downloadHandlerInstalled = true;
 
     resultList.addEventListener("click", async (e) => {
       const btn = e.target.closest(".btn-download");
-      if (!btn) return; // bukan tombol kita
+      if (!btn) return;
       e.preventDefault();
 
-      // Validasi: pastikan user sudah input URL di input atas
       if (!urlInput || !urlInput.value.trim()) {
         showStatus("Masukkan URL video dulu.", "error");
         return;
@@ -463,7 +424,6 @@ if (resultList) {
         return;
       }
 
-      // Coba fetch -> blob (force download). Jika upstream blokir CORS, fallback ke buka tab.
       showStatus("Mengambil file untuk diunduh...", "info");
       try {
         const fetchUrl = (USE_CORS_PROXY && CORS_PROXY) ? (CORS_PROXY + url) : url;
@@ -484,7 +444,6 @@ if (resultList) {
         return;
       } catch (err) {
         console.warn("fetch->blob failed:", err);
-        // fallback: coba paksa klik anchor (mungkin browser akan membuka/men-download)
         try {
           const a2 = document.createElement("a");
           a2.href = url;
@@ -504,14 +463,16 @@ if (resultList) {
     });
   }
 }
+
 // init
 clearResults();
 hideStatus();
 
-//INI TAMBAHAN BUAT DIRECT DOWNLOAD//
+// direct download helper
 async function forceDownloadVideo(url) {
   try {
     const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
 
@@ -520,16 +481,150 @@ async function forceDownloadVideo(url) {
     a.download = "video.mp4";
     document.body.appendChild(a);
     a.click();
-
     a.remove();
     window.URL.revokeObjectURL(blobUrl);
 
+    showStatus("Download dimulai.", "success");
   } catch(err) {
-    alert("Gagal download video: " + err.message);
+    console.error("forceDownloadVideo error:", err);
+    let msg = err.message || "Gagal download video";
+    if (String(msg).toLowerCase().includes("cors")) {
+      msg = "Gagal download video — kemungkinan diblokir CORS.";
+    }
+    showStatus(msg, "error");
   }
 }
-/* NOTES:
- - Ganti API_BASE ke endpoint yang sesuai. Jika endpoint butuh POST / body JSON, ubah callApi() agar melakukan POST.
- - Jangan taruh API_KEY di client untuk production; buat server proxy dan simpan key di ENV.
- - Jika butuh, gue bisa siapkan contoh server-proxy (server.js + package.json) yang memanggil TikHub/TikWM dan meneruskan respons ke client tanpa CORS.
-*/
+
+/* ===========================================================
+   LIGHTNING EFFECT (canvas + flash)
+   - non-blocking, lightweight, configurable
+   =========================================================== */
+(function lightningModule(){
+  const canvas = document.getElementById("lightningCanvas");
+  const flash = document.querySelector(".bg-flash");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0;
+  let bolts = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // bolt factory: generates branching lightning path
+  function createBolt() {
+    const startX = Math.random() * W;
+    const startY = 0;
+    const segments = [];
+    const segCount = 14 + Math.floor(Math.random()*14);
+    let x = startX, y = startY;
+    for (let i=0;i<segCount;i++){
+      const dx = (Math.random()-0.5) * 80;
+      const dy = (H / segCount) * (0.9 + Math.random()*0.6);
+      const nx = Math.max(0, Math.min(W, x + dx));
+      const ny = Math.min(H, y + dy);
+      segments.push({x1: x, y1: y, x2: nx, y2: ny});
+      x = nx; y = ny;
+      // occasionally create a fork
+      if (Math.random() < 0.12) {
+        const fork = {
+          x1: x,
+          y1: y,
+          x2: Math.max(0, Math.min(W, x + (Math.random()-0.5)*160)),
+          y2: Math.min(H, y + (H/segCount)*(0.6+Math.random()))
+        };
+        segments.push(fork);
+      }
+    }
+    return {
+      segments,
+      life: 0,
+      maxLife: 12 + Math.floor(Math.random()*12),
+      alpha: 1,
+      glow: 0.8 + Math.random()*0.8
+    };
+  }
+
+  function drawBolt(bolt) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = 1 + Math.random()*2;
+    ctx.shadowBlur = 12 * bolt.glow;
+    ctx.shadowColor = "rgba(120,160,255,0.9)";
+    ctx.strokeStyle = `rgba(200,230,255,${0.9 * (1 - bolt.life/bolt.maxLife)})`;
+
+    ctx.beginPath();
+    bolt.segments.forEach((s) => {
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+    });
+    ctx.stroke();
+
+    // brighter core
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 30 * bolt.glow;
+    ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - bolt.life/bolt.maxLife)})`;
+    ctx.beginPath();
+    bolt.segments.forEach((s) => {
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+    });
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // animate loop
+  function tick() {
+    // fade canvas a bit
+    ctx.clearRect(0,0,W,H);
+    // draw each bolt
+    for (let i = bolts.length -1; i >= 0; i--) {
+      const b = bolts[i];
+      drawBolt(b);
+      b.life++;
+      if (b.life > b.maxLife) bolts.splice(i,1);
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // flash effect
+  function doFlash(intensity = 0.7, duration = 120) {
+    if (!flash) return;
+    flash.style.transition = `background ${duration}ms linear`;
+    flash.style.background = `rgba(255,255,255,${intensity})`;
+    setTimeout(()=> {
+      flash.style.background = `rgba(255,255,255,0)`;
+    }, duration);
+  }
+
+  // expose a function to trigger a bolt + flash
+  window.triggerLightning = function(opts = {}) {
+    const bolt = createBolt();
+    if (opts.glow) bolt.glow = opts.glow;
+    bolts.push(bolt);
+    // flash intensity relative to bolt
+    const intensity = Math.min(0.85, 0.25 + Math.random()*0.7);
+    doFlash(intensity, opts.duration || 120);
+  };
+
+  // helper: maybe trigger (probability)
+  window.maybeTriggerLightning = function(prob=0.12) {
+    if (Math.random() < prob) {
+      window.triggerLightning();
+    }
+  };
+
+  // small ambient loop: sometimes trigger a bolt
+  setInterval(()=> {
+    if (Math.random() < 0.28) {
+      window.triggerLightning({ glow: 0.9 + Math.random()*0.8, duration: 100 + Math.random()*180 });
+    }
+  }, 2500);
+
+})();
