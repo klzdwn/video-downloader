@@ -1,5 +1,6 @@
 /* ===========================================
    KILLUA LIGHTNING NEON THEME (Clean Version)
+   (NO BLUR — Transparent UI)
    =========================================== */
 
 /* RESET */
@@ -20,11 +21,12 @@ body {
 }
 
 /* OVERLAY (TIPIS, FOTO TETAP JELAS) */
+/* kalau mau overlay gelap juga hilang, ganti alpha jadi 0 */
 body::before {
   content:"";
   position:fixed;
   inset:0;
-  background: linear-gradient(180deg, rgba(2,6,20,0.45), rgba(2,6,20,0.55));
+  background: linear-gradient(180deg, rgba(2,6,20,0.35), rgba(2,6,20,0.45)); /* dikurangi alpha */
   z-index: 0;
 }
 
@@ -38,16 +40,17 @@ body::before {
 }
 
 /* =============================
-   CARD (GLASSMORPHISM + NEON)
+   CARD (GLASS-LIKE, NO BLUR)
    ============================= */
 .card {
-  background: rgba(0,0,0,0.22);
-  backdrop-filter: blur(6px);
+  /* buat lebih transparan tanpa blur */
+  background: rgba(0,0,0,0.20); /* lebih transparan */
+  /* backdrop-filter removed to disable blur */
   border-radius: 16px;
   padding: 18px;
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.55),
-              0 0 22px rgba(45,120,255,0.12) inset;
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.50),
+              0 0 16px rgba(45,120,255,0.10) inset;
 }
 
 /* HEADER */
@@ -61,7 +64,7 @@ body::before {
   box-shadow: 0 0 14px rgba(85,130,255,0.75);
 }
 .title { font-size:26px; margin:0; font-weight:900; }
-.subtitle { margin:0; opacity:.85; }
+.subtitle { margin:0; opacity:.9; }
 
 /* INPUT */
 #urlInput {
@@ -70,14 +73,14 @@ body::before {
   border-radius:12px;
   color:#fff;
 
-  background: rgba(0,0,0,0.22) !important;
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(150,180,255,0.35);
-  box-shadow: 0 0 10px rgba(20,30,60,0.20);
+  background: rgba(0,0,0,0.18); /* lebih transparan */
+  /* backdrop-filter removed */
+  border: 1px solid rgba(150,180,255,0.28);
+  box-shadow: 0 0 8px rgba(20,30,60,0.16);
 }
 
 /* ====================
-   BUTTONS (NEON BLUE)
+   BUTTONS (NEON BLUE) - NO BLUR
    ==================== */
 .button-row { display:flex; gap:12px; margin-top:10px; }
 
@@ -91,22 +94,21 @@ body::before {
 }
 
 .btn-primary {
-  background: rgba(60,110,255,0.85) !important;
-  backdrop-filter: blur(4px) !important;
+  background: rgba(60,110,255,0.92); /* solid neon-ish for readability */
   color:white;
-  box-shadow: 0 0 18px rgba(77,130,255,0.45);
+  /* removed backdrop-filter */
+  box-shadow: 0 6px 20px rgba(60,110,255,0.28), 0 2px 6px rgba(0,0,0,0.42);
   transition:.15s;
 }
-
 .btn-primary:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 0 26px rgba(77,130,255,0.9);
+  filter: brightness(1.06);
+  box-shadow: 0 8px 30px rgba(60,110,255,0.35);
 }
+
 .btn-ghost {
-  background: rgba(255,255,255,0.12) !important;
-  backdrop-filter: blur(4px);
+  background: rgba(255,255,255,0.10);
   color:white;
-  box-shadow: 0 0 10px rgba(255,255,255,0.06);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
 }
 
 /* ==========================
@@ -118,18 +120,18 @@ body::before {
   border-radius:10px;
   font-weight:800;
   width:fit-content;
-  backdrop-filter: blur(4px);
+  /* removed backdrop-filter */
   z-index:3;
 }
 
 #statusBox[data-type="success"] {
-  background: rgba(40,170,90,0.75);
+  background: rgba(40,170,90,0.85);
   border:1px solid rgba(60,255,120,0.55);
   color:white;
 }
 
 #statusBox[data-type="error"] {
-  background: rgba(200,40,40,0.75);
+  background: rgba(200,40,40,0.85);
   border:1px solid rgba(255,80,80,0.55);
   color:white;
 }
@@ -139,29 +141,28 @@ body::before {
    ==================== */
 .result {
   margin-top:20px;
-  background: rgba(0,0,20,0.28) !important;
+  background: rgba(0,0,12,0.18); /* transparan */
   padding:16px;
   border-radius:14px;
-  border:1px solid rgba(120,160,255,0.08);
-  backdrop-filter: blur(4px);
+  border:1px solid rgba(120,160,255,0.06);
+  /* removed backdrop-filter */
 }
 .result.hidden { display:none; }
 
 /* VIDEO PLAYER + THUMBNAIL */
 .player, .thumb {
   border-radius:12px;
-  box-shadow: 0 0 25px rgba(0,0,0,0.6),
-              0 0 30px rgba(45,120,255,0.12);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 28px rgba(45,120,255,0.06);
 }
 .player.hidden, .thumb.hidden { display:none; }
 
 /* RESULT ITEMS */
 .result-item {
-  background: rgba(0,0,0,0.12);
+  background: rgba(0,0,0,0.08);
   padding:14px;
   border-radius:12px;
   margin-bottom:12px;
-  border:1px solid rgba(120,160,255,0.06);
+  border:1px solid rgba(120,160,255,0.04);
 }
 
 /* ============================
@@ -178,26 +179,21 @@ body::before {
   color:white;
   text-align:center;
   text-decoration:none;
-
   background: linear-gradient(180deg,#4c7aff,#355cff);
-  box-shadow:
-      0 0 18px rgba(70,120,255,0.25),
-      0 0 40px rgba(120,160,255,0.08);
+  box-shadow: 0 6px 18px rgba(60,110,255,0.18);
   transition: .15s;
 }
 
 .download-btn:hover {
-  filter: brightness(1.12);
-  box-shadow:
-      0 0 28px rgba(80,140,255,0.5),
-      0 0 50px rgba(140,180,255,0.15);
+  filter: brightness(1.08);
+  box-shadow: 0 10px 30px rgba(60,110,255,0.28);
 }
 
 /* Small open button */
 .open-btn {
   padding:10px 14px;
   color:white;
-  border:1px solid rgba(140,160,255,0.12);
+  border:1px solid rgba(140,160,255,0.08);
   border-radius:10px;
   text-decoration:none;
   background: rgba(255,255,255,0.04);
@@ -208,7 +204,7 @@ body::before {
   margin-top:12px;
   font-size:22px;
   color:white;
-  text-shadow: 0 0 12px rgba(90,130,255,0.25);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 /* MOBILE */
@@ -253,13 +249,3 @@ body::before {
 
 /* force readable text color inside cards */
 .card, .card * { color: #eaf2ff; }
-/* MATIKAN SEMUA BLUR */
-.card,
-#urlInput,
-.btn,
-.result,
-.result-item,
-#statusBox {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
