@@ -16,14 +16,13 @@ const clearBtn = document.getElementById("clearBtn");
 let statusBox = document.getElementById("statusBox");
 const resultBox = document.getElementById("resultBox");
 const resultList = document.getElementById("resultList");
-
 const playerBox = document.getElementById("playerBox");
 const previewVideo = document.getElementById("previewVideo");
 const thumbBox = document.getElementById("thumbBox");
 const thumbImg = document.getElementById("thumbImg");
 
 // ------------------------------------------------------
-// UI helpers (ensure statusBox placement)
+// STATUS BOX helpers
 // ------------------------------------------------------
 function _ensureStatusBox() {
   let box = document.getElementById("statusBox");
@@ -40,10 +39,10 @@ function _ensureStatusBox() {
   box.style.fontWeight = "600";
   box.style.maxWidth = "100%";
   box.style.boxSizing = "border-box";
-  box.style.background = "rgba(30,60,90,0.9)";
+  box.style.background = "rgba(30,60,90,0.95)";
   box.style.color = "#eaf2ff";
   box.style.textAlign = "center";
-  box.style.zIndex = 4;
+  box.style.zIndex = 3;
 
   if (anchor && anchor.parentNode) {
     anchor.parentNode.insertBefore(box, anchor.nextSibling);
@@ -80,7 +79,6 @@ function showStatus(msg, kind = "info") {
   if (kind !== "info") {
     box._hideTimeout = setTimeout(() => { hideStatus(); }, 6000);
   }
-
   return box;
 }
 
@@ -102,8 +100,7 @@ function clearResults() {
 }
 
 // ------------------------------------------------------
-// Utility: collect possible URLs from JSON
-// ------------------------------------------------------
+// Utility JSON/url helpers (tidak diubah)
 function collectUrls(obj, out = new Set()) {
   if (!obj) return out;
   if (typeof obj === "string") {
@@ -135,15 +132,12 @@ function pickThumbnail(json) {
 }
 
 // ------------------------------------------------------
-// Build request & call API
-// ------------------------------------------------------
+// API call (tidak diubah)
 async function callApi(videoUrl) {
   let endpoint = API_BASE + encodeURIComponent(videoUrl);
   if (USE_CORS_PROXY) endpoint = CORS_PROXY + endpoint;
-
   const headers = { Accept: "application/json" };
   if (API_KEY && API_KEY.length) headers["Authorization"] = API_KEY;
-
   const res = await fetch(endpoint, { method: "GET", headers });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -151,32 +145,25 @@ async function callApi(videoUrl) {
     err.raw = text;
     throw err;
   }
-
   const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json") || ct.includes("text/json")) {
-    return res.json();
-  } else {
-    const txt = await res.text();
-    try { return JSON.parse(txt); } catch (e) {
-      const err = new Error("Upstream returned non-JSON response");
-      err.raw = txt;
-      throw err;
-    }
+  if (ct.includes("application/json") || ct.includes("text/json")) return res.json();
+  const txt = await res.text();
+  try { return JSON.parse(txt); } catch (e) {
+    const err = new Error("Upstream returned non-JSON response");
+    err.raw = txt;
+    throw err;
   }
 }
 
 // ------------------------------------------------------
-// Download utility: fetch -> blob -> save
-// ------------------------------------------------------
+// download helper (tidak diubah)
 async function downloadBlob(url, filename = "video.mp4") {
   try {
     showStatus("Mengunduh file...", "info");
     let fetchUrl = url;
     if (USE_CORS_PROXY) fetchUrl = CORS_PROXY + url;
-
     const res = await fetch(fetchUrl);
     if (!res.ok) throw new Error("Fetch failed: " + res.status);
-
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -185,7 +172,6 @@ async function downloadBlob(url, filename = "video.mp4") {
     a.click();
     a.remove();
     URL.revokeObjectURL(a.href);
-
     hideStatus();
   } catch (err) {
     console.error("Download error", err);
@@ -199,15 +185,13 @@ async function downloadBlob(url, filename = "video.mp4") {
 }
 
 // ------------------------------------------------------
-// Render result
-// ------------------------------------------------------
+// Render result (mostly unchanged)
 function renderResult(payload) {
   if (payload && payload.ok && payload.result) payload = payload.result;
-
   const title = payload.title || payload.name || payload.desc || (payload.data && payload.data.title) || "";
   const thumbnail = pickThumbnail(payload);
-
   const downloads = [];
+
   if (Array.isArray(payload.downloads) && payload.downloads.length) {
     payload.downloads.forEach(d => {
       downloads.push({
@@ -235,7 +219,6 @@ function renderResult(payload) {
   const allUrls = Array.from(collectUrls(payload));
   const imageUrls = allUrls.filter(u => /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u));
   const audioUrls = allUrls.filter(u => /\.(mp3|m4a|aac|ogg|wav)(\?|$)/i.test(u) || /audio/i.test(u));
-
   const audioUrl = audioUrls.length ? audioUrls[0] : null;
   const photoUrl = thumbnail || (imageUrls.length ? imageUrls[0] : null);
 
@@ -296,7 +279,6 @@ function renderResult(payload) {
         <div style="font-weight:600">${d.label}</div>
         <div style="opacity:.75;font-size:13px">${d.size || ""}</div>
       </div>
-
       <div class="download-actions">
         <a href="${d.url}" class="btn-download download-btn" data-url="${d.url}"
            data-fn="${(d.filename || "video").replace(/"/g,'')}.mp4" download>
@@ -352,50 +334,35 @@ function renderResult(payload) {
 async function processUrl(videoUrl) {
   clearResults();
   showStatus("Loading...", "info");
-  if (gasBtn) {
-    gasBtn.disabled = true;
-    gasBtn.textContent = "Proses...";
-  }
+  if (gasBtn) { gasBtn.disabled = true; gasBtn.textContent = "Proses..."; }
 
   try {
     const json = await callApi(videoUrl);
-
     showStatus("Sukses menerima permintaan...", "success");
     renderResult(json);
-    // small chance to trigger a flash for drama
-    maybeTriggerLightning(0.18);
   } catch (err) {
     console.error("API error:", err);
     let msg = err.message || "Gagal";
     if ((err.raw && String(err.raw).toLowerCase().includes("cors")) || msg.toLowerCase().includes("cors")) {
       msg = "Request diblokir (CORS). Solusi: gunakan server-proxy atau aktifkan CORS proxy untuk testing.";
-    } else if (err.raw) {
-      console.log("Upstream raw:", err.raw);
     }
     showStatus("Error: " + msg, "error");
   } finally {
-    if (gasBtn) {
-      gasBtn.disabled = false;
-      gasBtn.textContent = "Download";
-    }
+    if (gasBtn) { gasBtn.disabled = false; gasBtn.textContent = "Download"; }
   }
 }
 
 // ------------------------------------------------------
-// Event listeners
+// Events
 // ------------------------------------------------------
 if (gasBtn) {
   gasBtn.addEventListener("click", () => {
     const u = (urlInput && urlInput.value || "").trim();
-    if (!u) {
-      showStatus("Masukkan URL video dulu!", "error");
-      return;
-    }
+    if (!u) { showStatus("Masukkan URL video dulu!", "error"); return; }
     try { new URL(u); } catch { showStatus("Format URL tidak valid.", "error"); return; }
     processUrl(u);
   });
 }
-
 if (clearBtn) {
   clearBtn.addEventListener("click", () => {
     if (urlInput) urlInput.value = "";
@@ -403,6 +370,7 @@ if (clearBtn) {
   });
 }
 
+// single delegation for download buttons
 if (resultList) {
   if (!window.__downloadHandlerInstalled) {
     window.__downloadHandlerInstalled = true;
@@ -419,10 +387,7 @@ if (resultList) {
 
       const url = btn.dataset.url || btn.getAttribute("href");
       const filename = (btn.dataset.fn || "video.mp4").replace(/"/g, "");
-      if (!url) {
-        showStatus("URL download tidak tersedia.", "error");
-        return;
-      }
+      if (!url) { showStatus("URL download tidak tersedia.", "error"); return; }
 
       showStatus("Mengambil file untuk diunduh...", "info");
       try {
@@ -430,7 +395,6 @@ if (resultList) {
         const res = await fetch(fetchUrl, { mode: "cors" });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const blob = await res.blob();
-
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = blobUrl;
@@ -439,7 +403,6 @@ if (resultList) {
         a.click();
         a.remove();
         URL.revokeObjectURL(blobUrl);
-
         showStatus("Download dimulai.", "success");
         return;
       } catch (err) {
@@ -464,18 +427,17 @@ if (resultList) {
   }
 }
 
-// init
+// init UI
 clearResults();
 hideStatus();
 
-// direct download helper
+// small helper for forced downloads (optional)
 async function forceDownloadVideo(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
-
     const a = document.createElement("a");
     a.href = blobUrl;
     a.download = "video.mp4";
@@ -483,7 +445,6 @@ async function forceDownloadVideo(url) {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(blobUrl);
-
     showStatus("Download dimulai.", "success");
   } catch(err) {
     console.error("forceDownloadVideo error:", err);
@@ -495,136 +456,91 @@ async function forceDownloadVideo(url) {
   }
 }
 
-/* ===========================================================
-   LIGHTNING EFFECT (canvas + flash)
-   - non-blocking, lightweight, configurable
-   =========================================================== */
-(function lightningModule(){
+/* =========================
+   Lightning / flash animation
+   =========================
+   Simple canvas-based lightning effect that triggers occasionally.
+*/
+(function initLightning(){
   const canvas = document.getElementById("lightningCanvas");
   const flash = document.querySelector(".bg-flash");
-  if (!canvas) return;
+  if (!canvas || !flash) return;
 
   const ctx = canvas.getContext("2d");
-  let W = 0, H = 0;
-  let bolts = [];
+  let W = canvas.width = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+  window.addEventListener("resize", () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; });
 
-  function resize() {
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  }
-  window.addEventListener("resize", resize);
-  resize();
+  const flashes = [];
 
-  // bolt factory: generates branching lightning path
-  function createBolt() {
-    const startX = Math.random() * W;
-    const startY = 0;
-    const segments = [];
-    const segCount = 14 + Math.floor(Math.random()*14);
-    let x = startX, y = startY;
-    for (let i=0;i<segCount;i++){
-      const dx = (Math.random()-0.5) * 80;
-      const dy = (H / segCount) * (0.9 + Math.random()*0.6);
-      const nx = Math.max(0, Math.min(W, x + dx));
-      const ny = Math.min(H, y + dy);
-      segments.push({x1: x, y1: y, x2: nx, y2: ny});
-      x = nx; y = ny;
-      // occasionally create a fork
-      if (Math.random() < 0.12) {
-        const fork = {
-          x1: x,
-          y1: y,
-          x2: Math.max(0, Math.min(W, x + (Math.random()-0.5)*160)),
-          y2: Math.min(H, y + (H/segCount)*(0.6+Math.random()))
-        };
-        segments.push(fork);
-      }
-    }
-    return {
-      segments,
-      life: 0,
-      maxLife: 12 + Math.floor(Math.random()*12),
-      alpha: 1,
-      glow: 0.8 + Math.random()*0.8
+  function spawnFlash() {
+    // create one lightning bolt structure
+    const bolt = {
+      x: Math.random()*W,
+      y: Math.random()*H*0.2,
+      life: 300 + Math.random()*200,
+      created: performance.now(),
+      segments: []
     };
+    // generate jagged polyline
+    const segCount = 6 + Math.floor(Math.random()*6);
+    let x = bolt.x, y = bolt.y;
+    for (let i=0;i<segCount;i++){
+      const nx = x + (Math.random()-0.5) * 200;
+      const ny = y + H/segCount * (1 + Math.random()*0.6);
+      bolt.segments.push({x:nx,y:ny});
+      x = nx; y = ny;
+    }
+    flashes.push(bolt);
+    // big flash overlay
+    flash.style.transition = "background 80ms linear";
+    flash.style.background = "rgba(255,255,255,0.14)";
+    setTimeout(()=> flash.style.background = "rgba(255,255,255,0)", 90);
   }
 
-  function drawBolt(bolt) {
-    ctx.save();
+  function drawBolt(bolt, t) {
+    const age = t - bolt.created;
+    const alpha = 1 - (age / bolt.life);
+    if (alpha <= 0) return;
+    // multiple strokes for glow
     ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = 1 + Math.random()*2;
-    ctx.shadowBlur = 12 * bolt.glow;
-    ctx.shadowColor = "rgba(120,160,255,0.9)";
-    ctx.strokeStyle = `rgba(200,230,255,${0.9 * (1 - bolt.life/bolt.maxLife)})`;
-
+    for (let pass = 0; pass < 3; pass++) {
+      ctx.lineWidth = 1 + (3 - pass) * (3 * alpha);
+      ctx.strokeStyle = `rgba(200,240,255,${0.15 * alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(bolt.x, bolt.y);
+      for (const s of bolt.segments) ctx.lineTo(s.x, s.y);
+      ctx.stroke();
+    }
+    // thin bright core
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = `rgba(255,255,255,${0.9 * alpha})`;
     ctx.beginPath();
-    bolt.segments.forEach((s) => {
-      ctx.moveTo(s.x1, s.y1);
-      ctx.lineTo(s.x2, s.y2);
-    });
+    ctx.moveTo(bolt.x, bolt.y);
+    for (const s of bolt.segments) ctx.lineTo(s.x, s.y);
     ctx.stroke();
-
-    // brighter core
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 30 * bolt.glow;
-    ctx.strokeStyle = `rgba(255,255,255,${0.6 * (1 - bolt.life/bolt.maxLife)})`;
-    ctx.beginPath();
-    bolt.segments.forEach((s) => {
-      ctx.moveTo(s.x1, s.y1);
-      ctx.lineTo(s.x2, s.y2);
-    });
-    ctx.stroke();
-
-    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
   }
 
-  // animate loop
-  function tick() {
-    // fade canvas a bit
+  function frame(ts){
     ctx.clearRect(0,0,W,H);
-    // draw each bolt
-    for (let i = bolts.length -1; i >= 0; i--) {
-      const b = bolts[i];
-      drawBolt(b);
-      b.life++;
-      if (b.life > b.maxLife) bolts.splice(i,1);
+    // draw each flash
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const f = flashes[i];
+      const age = ts - f.created;
+      if (age > f.life) { flashes.splice(i,1); continue; }
+      drawBolt(f, ts);
     }
-    requestAnimationFrame(tick);
+
+    // occasionally spawn new bolts
+    if (Math.random() < 0.015) { spawnFlash(); }
+    // small chance multiple in a burst
+    if (Math.random() < 0.01) { if (Math.random() < 0.6) spawnFlash(); }
+
+    requestAnimationFrame(frame);
   }
-  requestAnimationFrame(tick);
+  requestAnimationFrame(frame);
 
-  // flash effect
-  function doFlash(intensity = 0.7, duration = 120) {
-    if (!flash) return;
-    flash.style.transition = `background ${duration}ms linear`;
-    flash.style.background = `rgba(255,255,255,${intensity})`;
-    setTimeout(()=> {
-      flash.style.background = `rgba(255,255,255,0)`;
-    }, duration);
-  }
-
-  // expose a function to trigger a bolt + flash
-  window.triggerLightning = function(opts = {}) {
-    const bolt = createBolt();
-    if (opts.glow) bolt.glow = opts.glow;
-    bolts.push(bolt);
-    // flash intensity relative to bolt
-    const intensity = Math.min(0.85, 0.25 + Math.random()*0.7);
-    doFlash(intensity, opts.duration || 120);
-  };
-
-  // helper: maybe trigger (probability)
-  window.maybeTriggerLightning = function(prob=0.12) {
-    if (Math.random() < prob) {
-      window.triggerLightning();
-    }
-  };
-
-  // small ambient loop: sometimes trigger a bolt
-  setInterval(()=> {
-    if (Math.random() < 0.28) {
-      window.triggerLightning({ glow: 0.9 + Math.random()*0.8, duration: 100 + Math.random()*180 });
-    }
-  }, 2500);
-
+  // optional: expose for debugging
+  window._spawnLightning = spawnFlash;
 })();
